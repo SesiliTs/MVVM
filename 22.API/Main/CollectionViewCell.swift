@@ -178,10 +178,13 @@ final class CustomCell: UICollectionViewCell {
     
     func configure(with model: ResultStruct) {
         let urlString = "https://image.tmdb.org/t/p/original/\(model.backdropPath)"
+        
+        let rating = model.voteAverage
+        let roundedRating = Double(round(rating * 10) / 10)
+        
         filmPoster.loadFrom(stringUrl: urlString)
         filmNameLabel.text = model.originalTitle
-//        filmCategoryLabel.text = "\(model.category)"
-        ratingLabel.text = "\(model.voteAverage)"
+        ratingLabel.text = "\(roundedRating)"
     }
     
 }
