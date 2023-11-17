@@ -176,8 +176,8 @@ final class CustomCell: UICollectionViewCell {
         }
     }
     
-    func configure(with model: ResultStruct) {
-        let urlString = "https://image.tmdb.org/t/p/original/\(model.backdropPath)"
+    func configure(with model: Movie) {
+        let urlString = "https://image.tmdb.org/t/p/original/\(model.posterPath)"
         
         let rating = model.voteAverage
         let roundedRating = Double(round(rating * 10) / 10)

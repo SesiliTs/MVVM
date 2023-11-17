@@ -7,9 +7,11 @@
 
 import UIKit
 
-class HomeViewController: UIViewController {
+class HomeView: UIView {
     
     //MARK: - Properties
+    
+    var viewModel: HomeViewModel
     
     private let headerView = {
         let headerView = UIView()
@@ -44,7 +46,7 @@ class HomeViewController: UIViewController {
         return nowInLabel
     }()
     
-    private var collectionView = {
+    var collectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
@@ -60,38 +62,45 @@ class HomeViewController: UIViewController {
         return stackView
     }()
     
-    private var films = [ResultStruct]()
-    private let url = "https://api.themoviedb.org/3/movie/popular?api_key=0121a87cc86615dcfff388722ec6de80"
+    init(viewModel: HomeViewModel) {
+        self.viewModel = viewModel
+        super.init(frame: .zero)
+        setupUI()
+    }
     
-    //MARK: - ViewLifeCycle
     
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .backgroundBlue
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    
+    //MARK: - Private Methods
+    
+    func setupUI() {
+        backgroundColor = .backgroundBlue
         addSubViews()
         setupConstraints()
         setupCollectionView()
-        
-        NetworkService.shared.getData(urlString: url) { (result: Result<Film, Error>) in
-            switch result {
-            case .success(let data):
-                self.films = data.results
+        registerCollectionViewCell()
+        observeMoviesFetchingState()
+    }
+    
+    func observeMoviesFetchingState() {
+        viewModel.onFetchMovies = { [weak self] in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
                 self.collectionView.reloadData()
-            case .failure(let error):
-                print(error.localizedDescription)
             }
         }
     }
     
-    //MARK: - Private Methods
-    
     private func addSubViews() {
         headerView.addSubview(headerLogoImage)
         headerView.addSubview(profileButton)
-        view.addSubview(mainStackView)
+        addSubview(mainStackView)
         mainStackView.addArrangedSubview(nowInLabel)
         mainStackView.addArrangedSubview(collectionView)
-        view.addSubview(headerView)
+        addSubview(headerView)
         
     }
     
@@ -105,7 +114,7 @@ class HomeViewController: UIViewController {
     private func setupCollectionView() {
         collectionView.dataSource = self
         collectionView.delegate = self
-        collectionView.backgroundColor = view.backgroundColor
+        collectionView.backgroundColor = .backgroundBlue
         registerCollectionViewCell()
     }
     
@@ -118,9 +127,9 @@ class HomeViewController: UIViewController {
     private func headerConstraints() {
         NSLayoutConstraint.activate ([
             headerView.heightAnchor.constraint(equalToConstant: 108),
-            headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor)
+            headerView.topAnchor.constraint(equalTo: topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: trailingAnchor)
         ])
     }
     
@@ -145,38 +154,66 @@ class HomeViewController: UIViewController {
     private func stackViewConstraints() {
         NSLayoutConstraint.activate ([
             mainStackView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 16),
-            mainStackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            mainStackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            mainStackView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -16)
+            mainStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            mainStackView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            mainStackView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
         ])
     }
     
 }
 
+final class HomeViewController: UIViewController {
+    var itemView: HomeView
+    var viewModel: HomeViewModel
+    
+    
+    init() {
+        
+        let movieData = Movie(
+            originalTitle: "Example Title",
+            overview: "Example Overview",
+            posterPath: "Example Poster Path",
+            releaseDate: "Example Release Date",
+            title: "Example Title",
+            voteAverage: 5.0
+        )
+        
+        viewModel = HomeViewModel(itemModel: movieData)
+        itemView = HomeView(viewModel: viewModel)
+        super.init(nibName: nil, bundle: nil)
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func loadView() {
+        view = itemView
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        viewModel.fetchMovies()
+        itemView.observeMoviesFetchingState()
+    }
+}
+
 //MARK: - Extensions
 
-extension HomeViewController: UICollectionViewDataSource, UICollectionViewDelegate {
+extension HomeView: UICollectionViewDataSource, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        films.count
+        viewModel.movies.count
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "cell", for: indexPath) as! CustomCell
-        let currentFilm = films[indexPath.row]
+        let currentFilm = viewModel.movies[indexPath.row]
         cell.configure(with: currentFilm)
         return cell
     }
-    
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let selectedItem = films[indexPath.row]
-        let movieDetailViewController = MovieDetailViewController()
-        movieDetailViewController.selectedItem = selectedItem
-        navigationController?.pushViewController(movieDetailViewController, animated: true)
-        
-    }
 }
 
-extension HomeViewController: UICollectionViewDelegateFlowLayout {
+extension HomeView: UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let spacing: CGFloat = 15
         let collectionViewWidth = collectionView.frame.width
